@@ -133,7 +133,7 @@ TYPE
 				mu_n, mu_p, gamma_n, gamma_p,
 				nu_int_n, nu_int_p, N_t_int, E_t_int, C_n_int, C_p_int,
 				N_anion, N_cation, mu_anion, mu_cation,
-				G_ehp, P0, a, 
+				G_ehp, P0, a, ILL, 
 				k_f, preLangevin, k_direct,
 				N_t_bulk, C_n_bulk, C_p_bulk, E_t_bulk : myReal; 
 			    {integers:}		

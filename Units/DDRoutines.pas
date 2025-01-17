@@ -421,6 +421,7 @@ BEGIN
 		fieldDepG:=(ROUND(dumint) = 1);
 		Get_Float(inv, msg, 'P0', P0, CLpre); {0<=P0<1, fraction of quenched excitons that directly yield free carriers}
 		Get_Float(inv, msg, 'a', a, CLpre); {thermalization length, Braun model used, m}
+		Get_Float(inv, msg, 'I_L_L', ILL, CLpre); {m^-1, inverce localization length (put 0 for free electrons)}
 		Get_Integer(inv, msg, 'thermLengDist', thermLengDist, CLpre);
 		Get_Float(inv, msg, 'k_f', k_f, CLpre); {decay rate of CT state, 1/s}
 		Get_Float(inv, msg, 'k_direct', k_direct, CLpre); {m3/s, direct (band-to-band, bimolecular) recombination rate}
