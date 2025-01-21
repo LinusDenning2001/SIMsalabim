@@ -2435,6 +2435,20 @@ BEGIN
 	JD[par.NP+1]:=JD[par.NP]; {doesn't have a physical meaning though}
 END;
 
+PROCEDURE Add_Tunneling_Curr(VAR Jn, Jp : vector; VAR Vgn, Vgp : vector; CONSTREF stv : TStaticVars; CONSTREF par : TInputParameters);
+{This procedure adds tunneling current between interfaces to electron and hole currents}
+{NOTE: Work in progress}
+VAR i : INTEGER; lyrParL, lyrParR : TLayerParameters;
+BEGIN
+	FOR i:=0 TO par.NP DO
+		IF (i = stv.i1[stv.lid[i]]) THEN {we're crossing an interface}
+		BEGIN
+			{get left and right layer parameters of interface}
+			lyrParL:=par.lyr[stv.lid[i]];
+			lyrParR:=par.lyr[stv.lid[i+1]];
+		END;
+END;
+
 PROCEDURE Calc_Curr_Diff(sn : ShortInt; istart, ifinish : INTEGER; VAR J : vector; V, dens, mu, Rint : vector; CONSTREF stv : TStaticVars; CONSTREF par : TInputParameters);
 {This procedure calculates the current density in differential form, see Selberherr eq. 6.1-39 or 6.1-41}
 {sn denotes the sign of the carrier, so -1 for electrons, +1 for holes}
