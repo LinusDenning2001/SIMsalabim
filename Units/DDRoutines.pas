@@ -2439,6 +2439,7 @@ PROCEDURE Add_Tunneling_Curr(VAR Jn, Jp : vector; VAR Vgn, Vgp : vector; CONSTRE
 {This procedure adds tunneling current between interfaces to electron and hole currents}
 {NOTE: Work in progress}
 VAR i : INTEGER; lyrParL, lyrParR : TLayerParameters;
+numer, denom, a, dist, effec_m, V: myReal;
 BEGIN
 	FOR i:=0 TO par.NP DO
 		IF (i = stv.i1[stv.lid[i]]) THEN {we're crossing an interface}
@@ -2446,6 +2447,14 @@ BEGIN
 			{get left and right layer parameters of interface}
 			lyrParL:=par.lyr[stv.lid[i]];
 			lyrParR:=par.lyr[stv.lid[i+1]];
+
+			{calculate miller abrahms prefactor}
+			dist:=stv.x[i+1]-stv.x[i];
+			effec_m:=9.1093837e-31;{NOTE: needs to me effective mass}
+			a:=(h*effec_m)/(Pi*3*q);{NOTE: 3*q should be observed ionization energy}
+			numer:=2*(q**2)*(dist**2);
+			denom:=3*lyrParL.mu_n*(a**2);
+			V:=(numer/denom)*EXP(-2*dist/a)*EXP(-lyrParL.ILL*dist);
 		END;
 END;
 
@@ -2554,6 +2563,8 @@ BEGIN
 			1 : Calc_Curr_Diff(1, 0, par.NP, Jp, Vgp, p, mup, Rp.int, stv, par);{only needs part of Rp with interface recombination}
 			2 : Calc_Curr_Int(1, 0, par.NP, dti, Jp, Vgp, p, curr.p, mup, gen, Rp, stv, par); {needs full Rp and curr.p}
 		END;	
+		
+		Add_Tunneling_Curr(Jn, Jp, Vgn, Vgp, stv, par);
 
 		{first, set all ionic currents to zero:}
 		FILLCHAR(Jnion, SIZEOF(Jnion), 0); 
