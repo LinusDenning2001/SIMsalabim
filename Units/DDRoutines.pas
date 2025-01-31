@@ -1969,14 +1969,14 @@ BEGIN
 END;
 
 
-PROCEDURE Calc_Recombination_n(VAR Rn : TRec; dti : myReal; CONSTREF n, p, dp, Lan : vector; f_tb, f_ti : TTrapArray; CONSTREF stv : TStaticVars; CONSTREF par : TInputParameters);
+PROCEDURE Calc_Recombination_n(VAR Rn : TRec; dti : myReal; CONSTREF n, p, dp, Lan, V : vector; f_tb, f_ti : TTrapArray; CONSTREF stv : TStaticVars; CONSTREF par : TInputParameters);
 {Calculate all recombination processes and their contribution to the continuity equation for electrons.}
 {See Koopmans and Koster, Sol. RRL 2022, 2200560.} 
 VAR i, ii, j, e : INTEGER;
 	iiw,
 	sum_aj, sum_bj, sum_cj, sum_dj,
 	ciL, ciR, ai,
-	f_ti_level_inv_denom, numer, denom, a, b, c1, g, h, g0, g1, h0, h1, 
+	f_ti_level_inv_denom, numer, denom, a, b, c1, g, h, g0, g1, h0, h1, Evl, Ecl, Evr, Ecr,
 	dum1, dum2 : myReal; {used to store partial results}
 BEGIN 
 	FILLCHAR(Rn, SIZEOF(Rn), 0); {first: reset all fields to 0}
@@ -2097,16 +2097,37 @@ BEGIN
 		
 	END; {loop over interfaces}
 
+	{recombination via tunneling at interfaces}
+	FOR j:=1 TO stv.NLayers-1 DO {loop over interfaces. Each interface involves 2 points: i1[j] and i1[j]+1 (in the adjacent layer)}
+	BEGIN
+		{note: the interface sits between i1[j] and i1[j]+1}
+		ii:=stv.i1[j]; {ii: i interface}	
+		a:=stv.h[ii]/2;
+	
+		Ecl:=par.lyr[j].E_c + V[ii];
+		Evl:=par.lyr[j].E_v + V[ii];
+		Ecr:=par.lyr[j+1].E_c + V[ii+1];
+		Evr:=par.lyr[j+1].E_v + V[ii+1];
+
+		IF dti=0 THEN {steady-state}
+		BEGIN
+			g0:=EXP(-q*(ABS(Evr-Ecl) + Evr-Ecl)/(2*k*par.T))*EXP(-par.lyr[j].ILL*a*2);
+			g1:=EXP(-q*(ABS(Ecl-Evr) + Ecr-Evl)/(2*k*par.T))*EXP(-par.lyr[j+1].ILL*a*2);
+			
+			Rn.direct[ii]:=Rn.direct[ii] + MillarAbrahamsPre*(a**2)*n[ii]*p[ii+1]*g0;
+			Rn.direct[ii+1]:=Rn.direct[ii+1] + MillarAbrahamsPre*(a**2)*n[ii+1]*p[ii]*g1
+		END;
+	END
 END;
 
-PROCEDURE Calc_Recombination_p(VAR Rp : TRec; dti : myReal; CONSTREF n, p, dp, Lan : vector; f_tb, f_ti : TTrapArray; CONSTREF stv : TStaticVars; CONSTREF par : TInputParameters);
+PROCEDURE Calc_Recombination_p(VAR Rp : TRec; dti : myReal; CONSTREF n, p, dp, Lan, V: vector; f_tb, f_ti : TTrapArray; CONSTREF stv : TStaticVars; CONSTREF par : TInputParameters);
 {Calculate all recombination processes and their contribution to the continuity equation for holes.}
 {See Koopmans and Koster, Sol. RRL 2022, 2200560.}
 VAR i, ii, j, e : INTEGER;
 	iiw,
 	sum_aj, sum_bj, sum_cj, sum_dj,
 	diL, diR, bi, 
-	f_ti_level_inv_denom, numer, denom, a, b, c1, g, h, g0, g1, h0, h1, 
+	f_ti_level_inv_denom, numer, denom, a, b, c1, g, h, g0, g1, h0, h1, Evl, Ecl, Evr, Ecr,
 	dum1, dum2 : myReal; {used to store partial results}
 BEGIN 
 	FILLCHAR(Rp, SIZEOF(Rp), 0); {first: reset all fields to 0}
@@ -2227,6 +2248,28 @@ BEGIN
 		
 	END; {loop over interfaces}
 
+	{recombination via tunneling at interfaces}
+	FOR j:=1 TO stv.NLayers-1 DO {loop over interfaces. Each interface involves 2 points: i1[j] and i1[j]+1 (in the adjacent layer)}
+	BEGIN
+		{note: the interface sits between i1[j] and i1[j]+1}
+		ii:=stv.i1[j]; {ii: i interface}	
+		a:=stv.h[ii]/2;
+	
+		Ecl:=par.lyr[j].E_c + V[ii];
+		Evl:=par.lyr[j].E_v + V[ii];
+		Ecr:=par.lyr[j+1].E_c + V[ii+1];
+		Evr:=par.lyr[j+1].E_v + V[ii+1];
+
+		IF dti=0 THEN {steady-state}
+		BEGIN
+			g0:=EXP(-q*(ABS(Evl-Ecr) + Evl-Ecr)/(2*k*par.T))*EXP(-par.lyr[j].ILL*a*2);
+			g1:=EXP(-q*(ABS(Evr-Ecl) + Evr-Ecl)/(2*k*par.T))*EXP(-par.lyr[j+1].ILL*a*2);
+			
+			Rp.direct[ii]:=Rp.direct[ii] + MillarAbrahamsPre*(a**2)*p[ii]*n[ii+1]*g0;
+			Rp.direct[ii+1]:=Rp.direct[ii+1] + MillarAbrahamsPre*(a**2)*p[ii+1]*n[ii]*g1
+		END;
+	END
+
 END;
 
 PROCEDURE Cont_Eq_Elec(VAR n : vector; nPrevTime, V, Jn, p, mu, g, Lan, dp : vector; VAR f_tb, f_ti : TTrapArray; VAR Rn : TRec;
@@ -2260,7 +2303,7 @@ BEGIN
 	END;
 
 	{Calculate recombination and its contribution to the continuity equation} 
-	Calc_Recombination_n(Rn, dti, n, p, dp, Lan, f_tb, f_ti, stv, par);
+	Calc_Recombination_n(Rn, dti, n, p, dp, Lan, V, f_tb, f_ti, stv, par);
 
     {now set the interior part:}
     FOR i:=1 TO NP DO  {continuity eq. in matrix vorm}
@@ -2358,7 +2401,7 @@ BEGIN
 	END;
 
 	{Calculate recombination and its contribution to the continuity equation} 	
-	Calc_Recombination_p(Rp, dti, n, p, dp, Lan, f_tb, f_ti, stv, par);
+	Calc_Recombination_p(Rp, dti, n, p, dp, Lan, V, f_tb, f_ti, stv, par);
 
     {now do the interior points:}
     FOR i:=1 TO NP DO  {continuity eq. in matrix vorm}

@@ -64,6 +64,7 @@ CONST
     LowerLimBraun = 0.01; {IN Calc_Dissociation, lower limit of integration in Braun model, should be non-zero}
     UpperLimBraun = 20; {IN Calc_Dissociation, upper limit of integration in Braun model }
     minDeltaLambda = 0.5E-9; {IN: Read_AM_From_File, Read_nk_Material_From_File, minimum spacing between wavelengths in supplied spectrum/n,k files}
+    MillarAbrahamsPre = 1e-20;
 
 
 TYPE 
