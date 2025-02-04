@@ -2102,7 +2102,7 @@ BEGIN
 	BEGIN
 		{note: the interface sits between i1[j] and i1[j]+1}
 		ii:=stv.i1[j]; {ii: i interface}	
-		a:=stv.h[ii]/2;
+		a:=stv.h[ii]*stv.Ltot;
 	
 		Ecl:=par.lyr[j].E_c + V[ii];
 		Evl:=par.lyr[j].E_v + V[ii];
@@ -2253,7 +2253,7 @@ BEGIN
 	BEGIN
 		{note: the interface sits between i1[j] and i1[j]+1}
 		ii:=stv.i1[j]; {ii: i interface}	
-		a:=stv.h[ii]/2;
+		a:=stv.h[ii]*stv.Ltot;
 	
 		Ecl:=par.lyr[j].E_c + V[ii];
 		Evl:=par.lyr[j].E_v + V[ii];
