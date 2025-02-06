@@ -1968,6 +1968,10 @@ BEGIN
     g[par.NP+1]:=0
 END;
 
+FUNCTION Calc_Tunneling_Int(CONSTREF E0, Ed, T, gamma, d : myReal) : myReal;
+BEGIN
+	Calc_Tunneling_Int:=EXP(-q*(ABS(Ed-E0) + Ed-E0)/(2*k*T))*EXP(-2*gamma*d)*(EXP(gamma*d)-1)**2/(gamma**2);
+END;
 
 PROCEDURE Calc_Recombination_n(VAR Rn : TRec; dti : myReal; CONSTREF n, p, dp, Lan, V : vector; f_tb, f_ti : TTrapArray; CONSTREF stv : TStaticVars; CONSTREF par : TInputParameters);
 {Calculate all recombination processes and their contribution to the continuity equation for electrons.}
@@ -2111,11 +2115,11 @@ BEGIN
 
 		IF dti=0 THEN {steady-state}
 		BEGIN
-			g0:=EXP(-q*(ABS(Evr-Ecl) + Evr-Ecl)/(2*k*par.T))*EXP(-par.lyr[j].ILL*a*2);
-			g1:=EXP(-q*(ABS(Ecl-Evr) + Ecr-Evl)/(2*k*par.T))*EXP(-par.lyr[j+1].ILL*a*2);
-			
-			Rn.direct[ii]:=Rn.direct[ii] + MillarAbrahamsPre*(a**2)*n[ii]*p[ii+1]*g0;
-			Rn.direct[ii+1]:=Rn.direct[ii+1] + MillarAbrahamsPre*(a**2)*n[ii+1]*p[ii]*g1
+			g0:=Calc_Tunneling_Int(Ecl,Evr, par.T, par.lyr[j].ILL, a);
+			g1:=Calc_Tunneling_Int(Ecr,Evl, par.T, par.lyr[j+1].ILL, a);
+
+			Rn.direct[ii]:=Rn.direct[ii] + MillarAbrahamsPre*n[ii]*p[ii+1]*g0;
+			Rn.direct[ii+1]:=Rn.direct[ii+1] + MillarAbrahamsPre*n[ii+1]*p[ii]*g1
 		END;
 	END
 END;
@@ -2262,11 +2266,11 @@ BEGIN
 
 		IF dti=0 THEN {steady-state}
 		BEGIN
-			g0:=EXP(-q*(ABS(Evl-Ecr) + Evl-Ecr)/(2*k*par.T))*EXP(-par.lyr[j].ILL*a*2);
-			g1:=EXP(-q*(ABS(Evr-Ecl) + Evr-Ecl)/(2*k*par.T))*EXP(-par.lyr[j+1].ILL*a*2);
-			
-			Rp.direct[ii]:=Rp.direct[ii] + MillarAbrahamsPre*(a**2)*p[ii]*n[ii+1]*g0;
-			Rp.direct[ii+1]:=Rp.direct[ii+1] + MillarAbrahamsPre*(a**2)*p[ii+1]*n[ii]*g1
+			g0:=Calc_Tunneling_Int(Ecr,Evl, par.T, par.lyr[j].ILL, a);
+			g1:=Calc_Tunneling_Int(Ecl,Evr, par.T, par.lyr[j+1].ILL, a);
+
+			Rp.direct[ii]:=Rp.direct[ii] + MillarAbrahamsPre*p[ii]*n[ii+1]*g0;
+			Rp.direct[ii+1]:=Rp.direct[ii+1] + MillarAbrahamsPre*p[ii+1]*n[ii]*g1
 		END;
 	END
 
