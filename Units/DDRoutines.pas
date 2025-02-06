@@ -2113,15 +2113,12 @@ BEGIN
 		Ecr:=par.lyr[j+1].E_c + V[ii+1];
 		Evr:=par.lyr[j+1].E_v + V[ii+1];
 
-		IF dti=0 THEN {steady-state}
-		BEGIN
-			g0:=Calc_Tunneling_Int(Ecl,Evr, par.T, par.lyr[j].ILL, a);
-			g1:=Calc_Tunneling_Int(Ecr,Evl, par.T, par.lyr[j+1].ILL, a);
+		g0:=Calc_Tunneling_Int(Ecl,Evr, par.T, par.lyr[j].ILL, a);
+		g1:=Calc_Tunneling_Int(Ecr,Evl, par.T, par.lyr[j+1].ILL, a);
 
-			Rn.direct[ii]:=Rn.direct[ii] + MillarAbrahamsPre*n[ii]*p[ii+1]*g0;
-			Rn.direct[ii+1]:=Rn.direct[ii+1] + MillarAbrahamsPre*n[ii+1]*p[ii]*g1
-		END;
-	END
+		Rn.direct[ii]:=Rn.direct[ii] + MillarAbrahamsPre*n[ii]*p[ii+1]*g0;
+		Rn.direct[ii+1]:=Rn.direct[ii+1] + MillarAbrahamsPre*n[ii+1]*p[ii]*g1
+	END;
 END;
 
 PROCEDURE Calc_Recombination_p(VAR Rp : TRec; dti : myReal; CONSTREF n, p, dp, Lan, V: vector; f_tb, f_ti : TTrapArray; CONSTREF stv : TStaticVars; CONSTREF par : TInputParameters);
@@ -2264,14 +2261,11 @@ BEGIN
 		Ecr:=par.lyr[j+1].E_c + V[ii+1];
 		Evr:=par.lyr[j+1].E_v + V[ii+1];
 
-		IF dti=0 THEN {steady-state}
-		BEGIN
-			g0:=Calc_Tunneling_Int(Ecr,Evl, par.T, par.lyr[j].ILL, a);
-			g1:=Calc_Tunneling_Int(Ecl,Evr, par.T, par.lyr[j+1].ILL, a);
+		g0:=Calc_Tunneling_Int(Ecr,Evl, par.T, par.lyr[j].ILL, a);
+		g1:=Calc_Tunneling_Int(Ecl,Evr, par.T, par.lyr[j+1].ILL, a);
 
-			Rp.direct[ii]:=Rp.direct[ii] + MillarAbrahamsPre*p[ii]*n[ii+1]*g0;
-			Rp.direct[ii+1]:=Rp.direct[ii+1] + MillarAbrahamsPre*p[ii+1]*n[ii]*g1
-		END;
+		Rp.direct[ii]:=Rp.direct[ii] + MillarAbrahamsPre*p[ii]*n[ii+1]*g0;
+		Rp.direct[ii+1]:=Rp.direct[ii+1] + MillarAbrahamsPre*p[ii+1]*n[ii]*g1
 	END
 
 END;
@@ -2482,27 +2476,34 @@ BEGIN
 	JD[par.NP+1]:=JD[par.NP]; {doesn't have a physical meaning though}
 END;
 
-PROCEDURE Add_Tunneling_Curr(VAR Jn, Jp : vector; VAR Vgn, Vgp : vector; CONSTREF stv : TStaticVars; CONSTREF par : TInputParameters);
+PROCEDURE Add_Tunneling_Curr(VAR Jn, Jp : vector; VAR n, p, V : vector; CONSTREF stv : TStaticVars; CONSTREF par : TInputParameters);
 {This procedure adds tunneling current between interfaces to electron and hole currents}
-{NOTE: Work in progress}
-VAR i : INTEGER; lyrParL, lyrParR : TLayerParameters;
-numer, denom, a, dist, effec_m, V: myReal;
+VAR ii, j : INTEGER;
+Ecl, Evl, Ecr, Evr, a, g0, g1: myReal;
 BEGIN
-	FOR i:=0 TO par.NP DO
-		IF (i = stv.i1[stv.lid[i]]) THEN {we're crossing an interface}
-		BEGIN
-			{get left and right layer parameters of interface}
-			lyrParL:=par.lyr[stv.lid[i]];
-			lyrParR:=par.lyr[stv.lid[i+1]];
+	FOR j:=1 TO stv.NLayers-1 DO {loop over interfaces. Each interface involves 2 points: i1[j] and i1[j]+1 (in the adjacent layer)}
+	BEGIN
+		{note: the interface sits between i1[j] and i1[j]+1}
+		ii:=stv.i1[j]; {ii: i interface}	
+		a:=stv.h[ii]*stv.Ltot;
+	
+		Ecl:=par.lyr[j].E_c + V[ii];
+		Evl:=par.lyr[j].E_v + V[ii];
+		Ecr:=par.lyr[j+1].E_c + V[ii+1];
+		Evr:=par.lyr[j+1].E_v + V[ii+1];
 
-			{calculate miller abrahms prefactor}
-			dist:=stv.x[i+1]-stv.x[i];
-			effec_m:=9.1093837e-31;{NOTE: needs to me effective mass}
-			a:=(h*effec_m)/(Pi*3*q);{NOTE: 3*q should be observed ionization energy}
-			numer:=2*(q**2)*(dist**2);
-			denom:=3*lyrParL.mu_n*(a**2);
-			V:=(numer/denom)*EXP(-2*dist/a)*EXP(-lyrParL.ILL*dist);
-		END;
+		g0:=Calc_Tunneling_Int(Ecl,Evr, par.T, par.lyr[j].ILL, a);
+		g1:=Calc_Tunneling_Int(Ecr,Evl, par.T, par.lyr[j+1].ILL, a);
+
+		Jn[ii]:=Jn[ii] + MillarAbrahamsPre*n[ii]*p[ii+1]*g0;
+		Jn[ii+1]:=Jn[ii+1] - MillarAbrahamsPre*n[ii+1]*p[ii]*g1;
+
+		g0:=Calc_Tunneling_Int(Ecr,Evl, par.T, par.lyr[j].ILL, a);
+		g1:=Calc_Tunneling_Int(Ecl,Evr, par.T, par.lyr[j+1].ILL, a);
+
+		Jp[ii]:=Jp[ii] + MillarAbrahamsPre*p[ii]*n[ii+1]*g0;
+		Jp[ii+1]:=Jp[ii+1] - MillarAbrahamsPre*p[ii+1]*n[ii]*g1
+	END;
 END;
 
 PROCEDURE Calc_Curr_Diff(sn : ShortInt; istart, ifinish : INTEGER; VAR J : vector; V, dens, mu, Rint : vector; CONSTREF stv : TStaticVars; CONSTREF par : TInputParameters);
@@ -2611,7 +2612,7 @@ BEGIN
 			2 : Calc_Curr_Int(1, 0, par.NP, dti, Jp, Vgp, p, curr.p, mup, gen, Rp, stv, par); {needs full Rp and curr.p}
 		END;	
 		
-		Add_Tunneling_Curr(Jn, Jp, Vgn, Vgp, stv, par);
+		Add_Tunneling_Curr(Jn, Jp, n, p, V, stv, par);
 
 		{first, set all ionic currents to zero:}
 		FILLCHAR(Jnion, SIZEOF(Jnion), 0); 
