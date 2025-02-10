@@ -2114,7 +2114,7 @@ BEGIN
 		Evr:=par.lyr[j+1].E_v + V[ii+1];
 
 		g0:=Calc_Tunneling_Int(Ecl,Evr, par.T, par.lyr[j].ILL, a);
-		g1:=Calc_Tunneling_Int(Ecr,Evl, par.T, par.lyr[j+1].ILL, a);
+		g1:=Calc_Tunneling_Int(Ecr,Evl, par.T, par.lyr[j].ILL, a);
 
 		Rn.direct[ii]:=Rn.direct[ii] + MillarAbrahamsPre*n[ii]*p[ii+1]*g0;
 		Rn.direct[ii+1]:=Rn.direct[ii+1] + MillarAbrahamsPre*n[ii+1]*p[ii]*g1
@@ -2478,8 +2478,8 @@ END;
 
 PROCEDURE Add_Tunneling_Curr(VAR Jn, Jp : vector; VAR n, p, V : vector; CONSTREF stv : TStaticVars; CONSTREF par : TInputParameters);
 {This procedure adds tunneling current between interfaces to electron and hole currents}
-VAR ii, j : INTEGER;
-Ecl, Evl, Ecr, Evr, a, g0, g1: myReal;
+VAR i, ii, j : INTEGER;
+Ecl, Evl, Ecr, Evr, a, Jnl, Jnr, Jpl, Jpr: myReal;
 BEGIN
 	FOR j:=1 TO stv.NLayers-1 DO {loop over interfaces. Each interface involves 2 points: i1[j] and i1[j]+1 (in the adjacent layer)}
 	BEGIN
@@ -2492,17 +2492,22 @@ BEGIN
 		Ecr:=par.lyr[j+1].E_c + V[ii+1];
 		Evr:=par.lyr[j+1].E_v + V[ii+1];
 
-		g0:=Calc_Tunneling_Int(Ecl,Evr, par.T, par.lyr[j].ILL, a);
-		g1:=Calc_Tunneling_Int(Ecr,Evl, par.T, par.lyr[j+1].ILL, a);
+		Jnl:=q*MillarAbrahamsPre*n[ii]*p[ii+1]*Calc_Tunneling_Int(Ecl,Evr, par.T, par.lyr[j].ILL, a);
+		Jnr:=-q*MillarAbrahamsPre*n[ii+1]*p[ii]*Calc_Tunneling_Int(Ecr,Evl, par.T, par.lyr[j+1].ILL, a);
 
-		Jn[ii]:=Jn[ii] + MillarAbrahamsPre*n[ii]*p[ii+1]*g0;
-		Jn[ii+1]:=Jn[ii+1] - MillarAbrahamsPre*n[ii+1]*p[ii]*g1;
+		Jpl:=q*MillarAbrahamsPre*p[ii]*n[ii+1]*Calc_Tunneling_Int(Ecr,Evl, par.T, par.lyr[j].ILL, a);
+		Jpr:=-q*MillarAbrahamsPre*p[ii+1]*n[ii]*Calc_Tunneling_Int(Ecl,Evr, par.T, par.lyr[j+1].ILL, a);
 
-		g0:=Calc_Tunneling_Int(Ecr,Evl, par.T, par.lyr[j].ILL, a);
-		g1:=Calc_Tunneling_Int(Ecl,Evr, par.T, par.lyr[j+1].ILL, a);
-
-		Jp[ii]:=Jp[ii] + MillarAbrahamsPre*p[ii]*n[ii+1]*g0;
-		Jp[ii+1]:=Jp[ii+1] - MillarAbrahamsPre*p[ii+1]*n[ii]*g1
+		FOR i:=0 TO ii DO
+		BEGIN
+			Jn[i]:=Jn[i] + Jnl;
+			Jp[i]:=Jp[i] + Jpl;
+		END;
+		FOR i:=ii+1 TO stv.i1[stv.NLayers] DO
+		BEGIN
+			Jn[i]:=Jn[i] + Jnr;
+			Jp[i]:=Jp[i] + Jpr;
+		END;
 	END;
 END;
 
@@ -2612,7 +2617,7 @@ BEGIN
 			2 : Calc_Curr_Int(1, 0, par.NP, dti, Jp, Vgp, p, curr.p, mup, gen, Rp, stv, par); {needs full Rp and curr.p}
 		END;	
 		
-		Add_Tunneling_Curr(Jn, Jp, n, p, V, stv, par);
+		{ Add_Tunneling_Curr(Jn, Jp, n, p, V, stv, par); }
 
 		{first, set all ionic currents to zero:}
 		FILLCHAR(Jnion, SIZEOF(Jnion), 0); 
