@@ -64,7 +64,7 @@ CONST
     LowerLimBraun = 0.01; {IN Calc_Dissociation, lower limit of integration in Braun model, should be non-zero}
     UpperLimBraun = 20; {IN Calc_Dissociation, upper limit of integration in Braun model }
     minDeltaLambda = 0.5E-9; {IN: Read_AM_From_File, Read_nk_Material_From_File, minimum spacing between wavelengths in supplied spectrum/n,k files}
-    MillarAbrahamsPre = 1;
+    MillarAbrahamsPre = 1E-2;
 
 
 TYPE 
@@ -88,10 +88,11 @@ TYPE
 
 
     TRec = RECORD {for storing the linearization of f_ti and f_tb at a grid point}
-			direct, bulk, int, {direct (band to band), bulk SRH, interface SRH recombination respectively}
+			direct, bulk, int, tunn,{direct (band to band), bulk SRH, interface SRH recombination, tunneling recombination respectively}
             {the rest are auxiliary variables:}
 			dir_cont_rhs, dir_cont_m, bulk_cont_rhs, bulk_cont_m,
-			int_cont_lo, int_cont_up, int_cont_m, int_cont_rhs : vector;        
+			int_cont_lo, int_cont_up, int_cont_m, int_cont_rhs,
+			tunn_cont_rhs, tunn_cont_m : vector;        
            END;	
 
     TState = RECORD {stores all variables that either define a state or change in time}

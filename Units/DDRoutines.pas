@@ -1970,7 +1970,7 @@ END;
 
 FUNCTION Calc_Tunneling_Int(CONSTREF E0, Ed, T, gamma, d : myReal) : myReal;
 BEGIN
-	Calc_Tunneling_Int:=EXP(-q*(ABS(Ed-E0) + Ed-E0)/(2*k*T))*EXP(-2*gamma*d)*(EXP(gamma*d)-1)**2/(gamma**2);
+	Calc_Tunneling_Int:=MillarAbrahamsPre*EXP(-q*(ABS(Ed-E0) + Ed-E0)/(2*k*T))*EXP(-2*gamma*d)*(EXP(gamma*d)-1)**2/(gamma**2);
 END;
 
 PROCEDURE Calc_Recombination_n(VAR Rn : TRec; dti : myReal; CONSTREF n, p, dp, Lan, V : vector; f_tb, f_ti : TTrapArray; CONSTREF stv : TStaticVars; CONSTREF par : TInputParameters);
@@ -2116,8 +2116,13 @@ BEGIN
 		g0:=Calc_Tunneling_Int(Ecl,Evr, par.T, par.lyr[j].ILL, a);
 		g1:=Calc_Tunneling_Int(Ecr,Evl, par.T, par.lyr[j].ILL, a);
 
-		Rn.direct[ii]:=Rn.direct[ii] + MillarAbrahamsPre*n[ii]*p[ii+1]*g0;
-		Rn.direct[ii+1]:=Rn.direct[ii+1] + MillarAbrahamsPre*n[ii+1]*p[ii]*g1
+		{ Rn.tunn_cont_rhs[ii]:=n[ii]*p[ii+1]*g0; }
+		Rn.tunn_cont_m[ii]:=p[ii+1]*g0;
+		{ Rn.tunn_cont_rhs[ii+1]:=n[ii+1]*p[ii]*g0; }
+		Rn.tunn_cont_m[ii+1]:=p[ii]*g1;
+
+		Rn.tunn[ii]:=n[ii]*Rn.tunn_cont_m[ii];
+		Rn.tunn[ii+1]:=n[ii+1]*Rn.tunn_cont_m[ii+1];
 	END;
 END;
 
@@ -2264,8 +2269,13 @@ BEGIN
 		g0:=Calc_Tunneling_Int(Ecr,Evl, par.T, par.lyr[j].ILL, a);
 		g1:=Calc_Tunneling_Int(Ecl,Evr, par.T, par.lyr[j+1].ILL, a);
 
-		Rp.direct[ii]:=Rp.direct[ii] + MillarAbrahamsPre*p[ii]*n[ii+1]*g0;
-		Rp.direct[ii+1]:=Rp.direct[ii+1] + MillarAbrahamsPre*p[ii+1]*n[ii]*g1
+		{ Rp.tunn_cont_rhs[ii]:=p[ii]*n[ii+1]*g0; }
+		Rp.tunn_cont_m[ii]:=n[ii+1]*g0;
+		{ Rp.tunn_cont_rhs[ii+1]:=p[ii+1]*n[ii]*g0; }
+		Rp.tunn_cont_m[ii+1]:=n[ii]*g1;
+
+		Rp.tunn[ii]:=p[ii]*Rp.tunn_cont_m[ii];
+		Rp.tunn[ii+1]:=p[ii+1]*Rp.tunn_cont_m[ii+1];
 	END
 
 END;
@@ -2312,17 +2322,19 @@ BEGIN
 			rhs[i]:=- fac * (g[i] +nPrevTime[i]*dti)
         			- fac*Rn.dir_cont_rhs[i] {direct / Langevin recombination}
 		        	+ fac*Rn.bulk_cont_rhs[i] {the part of Rn_bulk that does not depend on n_new}
-			        + fac*Rn.int_cont_rhs[i]; {the part of Rn_int that does not depend on n_new}
+			        + fac*Rn.int_cont_rhs[i] {the part of Rn_int that does not depend on n_new}
+				- fac*Rn.tunn_cont_rhs[i]; {the part of Rn_tunn that does not depend on n_new}
 			
 			lo[i]:=  h[i]*mu[i-1]*stv.Vt*B((V[i-1]-V[i])*stv.Vti) +
          		   - fac*Rn.int_cont_lo[i]; {the part of Rn_int that depends on n[i-1]}
 			
 			m[i]:=- (h[i-1]*mu[i]*stv.Vt*B((V[i]-V[i+1])*stv.Vti) +
 				    h[i]*mu[i-1]*stv.Vt*B((V[i]-V[i-1])*stv.Vti))
-				  - fac*dti
-			      - fac*Rn.dir_cont_m[i] {direct / Langevin recombination}
-			      - fac*Rn.bulk_cont_m[i] {the part of Rn_bulk that depends on n[i]}
-                  - fac*Rn.int_cont_m[i]; {the part of Rn_int that depends on n[i]}
+				- fac*dti
+				- fac*Rn.dir_cont_m[i] {direct / Langevin recombination}
+				- fac*Rn.bulk_cont_m[i] {the part of Rn_bulk that depends on n[i]}
+				- fac*Rn.int_cont_m[i] {the part of Rn_int that depends on n[i]}
+				- fac*Rn.tunn_cont_m[i]; {the part of Rn_tunn that depends on n[i]}
 			
 			u[i]:=  h[i-1]*mu[i]*stv.Vt*B((V[i+1]-V[i])*stv.Vti)
 			      - fac*Rn.int_cont_up[i]; {the part of Rn_int that depends on n[i+1]}
@@ -2968,7 +2980,7 @@ BEGIN
 	ASSIGN(uitv, par.varFile);
 	REWRITE(uitv); {rewrite old file (if any) or create new one}
     {write header, in the simulation we'll simply output the variables, but not change this header:}
-    WRITE(uitv, ' x V Evac Ec Ev phin phip n p ND NA anion cation ntb nti mun mup G_ehp Gfree Rdir BulkSRHn BulkSRHp IntSRHn IntSRHp Jn Jp Jint');
+    WRITE(uitv, ' x V Evac Ec Ev phin phip n p ND NA anion cation ntb nti mun mup G_ehp Gfree Rdir Rtunn BulkSRHn BulkSRHp IntSRHn IntSRHp Jn Jp Jint');
 
     IF transient 
 		THEN WRITELN(uitv,' Jnion Jpion JD lid time') {add time! the ion & displacement currents are zero if not transient!}
@@ -3020,7 +3032,7 @@ BEGIN
 				{generation:}
 				Gm[i]:nd,' ',gen[i]:nd,' ',
 				{recombination:}
-				Rn.direct[i]:nd,' ',Rn.bulk[i]:nd,' ',Rp.bulk[i]:nd,' ',Rn.int[i]:nd,' ',Rp.int[i]:nd,' ',
+				Rn.direct[i]:nd,' ',Rn.tunn[i],' ',Rn.bulk[i]:nd,' ',Rp.bulk[i]:nd,' ',Rn.int[i]:nd,' ',Rp.int[i]:nd,' ',
 				{current densities:}
 				Jn[i]:nd,' ',Jp[i]:nd,' ',Jtot:nd);	        
         IF transient 
