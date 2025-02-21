@@ -403,6 +403,7 @@ BEGIN
 		stv.Traps_int_poisson:=stv.Traps_int_poisson OR (N_t_int<>0) AND (intTrapType<>0) AND (layerNumber<stv.NLayers); {note: last layer does not specify interface traps}
 		Get_Float(inv, msg, 'C_n_int', C_n_int, CLpre); {m^3/s, capture coefficient for electrons (put to 0 to exclude capture from and emission to the conduction band)}
 		Get_Float(inv, msg, 'C_p_int', C_p_int, CLpre); {m^3/s, capture coefficient for holes (put to 0 to exclude capture from and emission to the valence band)}
+		Get_Float(inv, msg, 'tunn_fact', tunn_fact, CLpre); {m^-2 s^-1, tunneling factor for tunneling recombination}
 
 {**Ions*******************************************************************}
 		Get_Float(inv, msg, 'N_anion', N_anion, CLpre); {m^-3, concentration of negative ions}
@@ -421,7 +422,6 @@ BEGIN
 		fieldDepG:=(ROUND(dumint) = 1);
 		Get_Float(inv, msg, 'P0', P0, CLpre); {0<=P0<1, fraction of quenched excitons that directly yield free carriers}
 		Get_Float(inv, msg, 'a', a, CLpre); {thermalization length, Braun model used, m}
-		Get_Float(inv, msg, 'I_L_L', ILL, CLpre); {m^-1, inverce localization length (put 0 for free electrons)}
 		Get_Integer(inv, msg, 'thermLengDist', thermLengDist, CLpre);
 		Get_Float(inv, msg, 'k_f', k_f, CLpre); {decay rate of CT state, 1/s}
 		Get_Float(inv, msg, 'k_direct', k_direct, CLpre); {m3/s, direct (band-to-band, bimolecular) recombination rate}
@@ -1968,9 +1968,9 @@ BEGIN
     g[par.NP+1]:=0
 END;
 
-FUNCTION Calc_Tunneling_Int(CONSTREF E0, Ed, T, gamma, d : myReal) : myReal;
+FUNCTION Calc_Tunneling_Int(CONSTREF Estart, Eend, Vti , tunn_fact: myReal) : myReal;
 BEGIN
-	Calc_Tunneling_Int:=MillarAbrahamsPre*EXP(-q*(ABS(Ed-E0) + Ed-E0)/(2*k*T))*EXP(-2*gamma*d)*(EXP(gamma*d)-1)**2/(gamma**2);
+	Calc_Tunneling_Int:=tunn_fact*EXP(-Vti*(ABS(Eend-Estart) + Eend-Estart)/2);
 END;
 
 PROCEDURE Calc_Recombination_n(VAR Rn : TRec; dti : myReal; CONSTREF n, p, dp, Lan, V : vector; f_tb, f_ti : TTrapArray; CONSTREF stv : TStaticVars; CONSTREF par : TInputParameters);
@@ -2106,23 +2106,36 @@ BEGIN
 	BEGIN
 		{note: the interface sits between i1[j] and i1[j]+1}
 		ii:=stv.i1[j]; {ii: i interface}	
-		a:=stv.h[ii]*stv.Ltot;
-	
-		Ecl:=par.lyr[j].E_c + V[ii];
-		Evl:=par.lyr[j].E_v + V[ii];
-		Ecr:=par.lyr[j+1].E_c + V[ii+1];
-		Evr:=par.lyr[j+1].E_v + V[ii+1];
+		iiw:=2 / (stv.Ltot*(0.5*stv.h[ii+1] + stv.h[ii] + 0.5*stv.h[ii-1])); {inverse of width of the interface}
 
-		g0:=Calc_Tunneling_Int(Ecl,Evr, par.T, par.lyr[j].ILL, a);
-		g1:=Calc_Tunneling_Int(Ecr,Evl, par.T, par.lyr[j].ILL, a);
+		IF dti=0 THEN {steady-state}
+		BEGIN
+			Ecl:=par.lyr[j].E_c + V[ii];
+			Evl:=par.lyr[j].E_v + V[ii];
+			Ecr:=par.lyr[j+1].E_c + V[ii+1];
+			Evr:=par.lyr[j+1].E_v + V[ii+1];
 
-		{ Rn.tunn_cont_rhs[ii]:=n[ii]*p[ii+1]*g0; }
-		Rn.tunn_cont_m[ii]:=p[ii+1]*g0;
-		{ Rn.tunn_cont_rhs[ii+1]:=n[ii+1]*p[ii]*g0; }
-		Rn.tunn_cont_m[ii+1]:=p[ii]*g1;
+			{Recombination terms}
+			dum1:=Calc_Tunneling_Int(Ecl,Evr, stv.Vti, par.lyr[j].tunn_fact);
+			dum2:=Calc_Tunneling_Int(Ecr,Evl, stv.Vti, par.lyr[j].tunn_fact);
 
-		Rn.tunn[ii]:=n[ii]*Rn.tunn_cont_m[ii];
-		Rn.tunn[ii+1]:=n[ii+1]*Rn.tunn_cont_m[ii+1];
+			Rn.tunn_cont_m[ii]:=iiw*p[ii+1]*dum1;
+			Rn.tunn_cont_m[ii+1]:=iiw*p[ii]*dum2;
+
+			{Generation terms}
+			dum1:=(par.lyr[j+1].N_c-p[ii+1])*Calc_Tunneling_Int(Evr,Ecl, stv.Vti, par.lyr[j].tunn_fact);
+			dum2:=(par.lyr[j].N_c-p[ii])*Calc_Tunneling_Int(Evl,Ecr, stv.Vti, par.lyr[j].tunn_fact);
+
+			Rn.tunn_cont_rhs[ii]:=iiw*par.lyr[j].N_c*dum1;
+			Rn.tunn_cont_rhs[ii+1]:=iiw*par.lyr[j+1].N_c*dum2;
+
+			Rn.tunn_cont_m[ii]:=Rn.tunn_cont_m[ii] + iiw*dum1;
+			Rn.tunn_cont_m[ii+1]:=Rn.tunn_cont_m[ii+1] + iiw*dum2;
+
+			{Total recombination}
+			Rn.tunn[ii]:=n[ii]*Rn.tunn_cont_m[ii] - Rn.tunn_cont_rhs[ii];
+			Rn.tunn[ii+1]:=n[ii+1]*Rn.tunn_cont_m[ii+1] - Rn.tunn_cont_rhs[ii+1]
+		END;
 	END;
 END;
 
@@ -2259,25 +2272,37 @@ BEGIN
 	BEGIN
 		{note: the interface sits between i1[j] and i1[j]+1}
 		ii:=stv.i1[j]; {ii: i interface}	
-		a:=stv.h[ii]*stv.Ltot;
-	
-		Ecl:=par.lyr[j].E_c + V[ii];
-		Evl:=par.lyr[j].E_v + V[ii];
-		Ecr:=par.lyr[j+1].E_c + V[ii+1];
-		Evr:=par.lyr[j+1].E_v + V[ii+1];
+		iiw:=2 / (stv.Ltot*(0.5*stv.h[ii+1] + stv.h[ii] + 0.5*stv.h[ii-1])); {inverse of width of the interface}
 
-		g0:=Calc_Tunneling_Int(Ecr,Evl, par.T, par.lyr[j].ILL, a);
-		g1:=Calc_Tunneling_Int(Ecl,Evr, par.T, par.lyr[j+1].ILL, a);
+		IF dti=0 THEN {steady-state}
+		BEGIN
+			Ecl:=par.lyr[j].E_c + V[ii];
+			Evl:=par.lyr[j].E_v + V[ii];
+			Ecr:=par.lyr[j+1].E_c + V[ii+1];
+			Evr:=par.lyr[j+1].E_v + V[ii+1];
 
-		{ Rp.tunn_cont_rhs[ii]:=p[ii]*n[ii+1]*g0; }
-		Rp.tunn_cont_m[ii]:=n[ii+1]*g0;
-		{ Rp.tunn_cont_rhs[ii+1]:=p[ii+1]*n[ii]*g0; }
-		Rp.tunn_cont_m[ii+1]:=n[ii]*g1;
+			{Recombination terms}
+			dum1:=Calc_Tunneling_Int(Ecr,Evl, stv.Vti, par.lyr[j].tunn_fact);
+			dum2:=Calc_Tunneling_Int(Ecl,Evr, stv.Vti, par.lyr[j].tunn_fact);
 
-		Rp.tunn[ii]:=p[ii]*Rp.tunn_cont_m[ii];
-		Rp.tunn[ii+1]:=p[ii+1]*Rp.tunn_cont_m[ii+1];
-	END
+			Rp.tunn_cont_m[ii]:=iiw*n[ii+1]*dum1;
+			Rp.tunn_cont_m[ii+1]:=iiw*n[ii]*dum2;
 
+			{Generation terms}
+			dum1:=(par.lyr[j+1].N_c-n[ii+1])*Calc_Tunneling_Int(Evl,Ecr, stv.Vti, par.lyr[j].tunn_fact);
+			dum2:=(par.lyr[j].N_c-n[ii])*Calc_Tunneling_Int(Evr,Ecl, stv.Vti, par.lyr[j].tunn_fact);
+
+			Rp.tunn_cont_rhs[ii]:=iiw*par.lyr[j].N_c*dum1;
+			Rp.tunn_cont_rhs[ii+1]:=iiw*par.lyr[j+1].N_c*dum2;
+
+			Rp.tunn_cont_m[ii]:=Rp.tunn_cont_m[ii] + iiw*dum1;
+			Rp.tunn_cont_m[ii+1]:=Rp.tunn_cont_m[ii+1] + iiw*dum2;
+
+			{potal recombination}
+			Rp.tunn[ii]:=p[ii]*Rp.tunn_cont_m[ii] - Rp.tunn_cont_rhs[ii];
+			Rp.tunn[ii+1]:=p[ii+1]*Rp.tunn_cont_m[ii+1] - Rp.tunn_cont_rhs[ii+1]
+		END;
+	END;
 END;
 
 PROCEDURE Cont_Eq_Elec(VAR n : vector; nPrevTime, V, Jn, p, mu, g, Lan, dp : vector; VAR f_tb, f_ti : TTrapArray; VAR Rn : TRec;
@@ -2323,7 +2348,7 @@ BEGIN
         			- fac*Rn.dir_cont_rhs[i] {direct / Langevin recombination}
 		        	+ fac*Rn.bulk_cont_rhs[i] {the part of Rn_bulk that does not depend on n_new}
 			        + fac*Rn.int_cont_rhs[i] {the part of Rn_int that does not depend on n_new}
-				- fac*Rn.tunn_cont_rhs[i]; {the part of Rn_tunn that does not depend on n_new}
+			        - fac*Rn.tunn_cont_rhs[i]; {the part of Rn_tunn that does not depend on n_new}
 			
 			lo[i]:=  h[i]*mu[i-1]*stv.Vt*B((V[i-1]-V[i])*stv.Vti) +
          		   - fac*Rn.int_cont_lo[i]; {the part of Rn_int that depends on n[i-1]}
@@ -2422,17 +2447,19 @@ BEGIN
 			rhs[i]:=- fac * (g[i] +pPrevTime[i]*dti)
 			        - fac*Rp.dir_cont_rhs[i] {direct / Langevin recombination}
 			        + fac*Rp.bulk_cont_rhs[i] {the part of Rp_bulk that is independent of p_new}
-         			+ fac*Rp.int_cont_rhs[i]; {the part of Rp_int that is independent of p_new}
+         			+ fac*Rp.int_cont_rhs[i] {the part of Rp_int that is independent of p_new}
+			        - fac*Rp.tunn_cont_rhs[i]; {the part of Rp_tunn that does not depend on n_new}
 
 			lo[i]:=  h[i]*mu[i-1]*stv.Vt*B((V[i]-V[i-1])*stv.Vti)
 			       - fac*Rp.int_cont_lo[i]; {the part of Rp_int that depends on p[i-1]}
 			
 			m[i]:=- (h[i-1]*mu[i]*stv.Vt*B((V[i+1]-V[i])*stv.Vti) +
 				    h[i]*mu[i-1]*stv.Vt*B((V[i-1]-V[i])*stv.Vti))
-				  - fac*dti
-			      - fac*Rp.dir_cont_m[i] {direct / Langevin recombination}
-			      - fac*Rp.bulk_cont_m[i] {part of Rp_bulk that depends on p[i]}
-			      - fac*Rp.int_cont_m[i]; {the part of Rp_int that depends on p[i]}
+				- fac*dti
+				- fac*Rp.dir_cont_m[i] {direct / Langevin recombination}
+				- fac*Rp.bulk_cont_m[i] {part of Rp_bulk that depends on p[i]}
+				- fac*Rp.int_cont_m[i] {the part of Rp_int that depends on p[i]}
+				- fac*Rp.tunn_cont_m[i]; {the part of Rp_tunn that depends on p[i]}
 
 			u[i]:=  h[i-1]*mu[i]*stv.Vt*B((V[i]-V[i+1])*stv.Vti)
 			      - fac*Rp.int_cont_up[i]; {the part of Rp_int that depends on p[i+1]}
@@ -2486,41 +2513,6 @@ BEGIN
 	FOR i:=0 TO par.NP DO
 		JD[i]:=stv.eps[i] * (V[i+1]-V[i]-VPrevTime[i+1]+VPrevTime[i]) * dti / (stv.Ltot*stv.h[i]);
 	JD[par.NP+1]:=JD[par.NP]; {doesn't have a physical meaning though}
-END;
-
-PROCEDURE Add_Tunneling_Curr(VAR Jn, Jp : vector; VAR n, p, V : vector; CONSTREF stv : TStaticVars; CONSTREF par : TInputParameters);
-{This procedure adds tunneling current between interfaces to electron and hole currents}
-VAR i, ii, j : INTEGER;
-Ecl, Evl, Ecr, Evr, a, Jnl, Jnr, Jpl, Jpr: myReal;
-BEGIN
-	FOR j:=1 TO stv.NLayers-1 DO {loop over interfaces. Each interface involves 2 points: i1[j] and i1[j]+1 (in the adjacent layer)}
-	BEGIN
-		{note: the interface sits between i1[j] and i1[j]+1}
-		ii:=stv.i1[j]; {ii: i interface}	
-		a:=stv.h[ii]*stv.Ltot;
-	
-		Ecl:=par.lyr[j].E_c + V[ii];
-		Evl:=par.lyr[j].E_v + V[ii];
-		Ecr:=par.lyr[j+1].E_c + V[ii+1];
-		Evr:=par.lyr[j+1].E_v + V[ii+1];
-
-		Jnl:=q*MillarAbrahamsPre*n[ii]*p[ii+1]*Calc_Tunneling_Int(Ecl,Evr, par.T, par.lyr[j].ILL, a);
-		Jnr:=-q*MillarAbrahamsPre*n[ii+1]*p[ii]*Calc_Tunneling_Int(Ecr,Evl, par.T, par.lyr[j+1].ILL, a);
-
-		Jpl:=q*MillarAbrahamsPre*p[ii]*n[ii+1]*Calc_Tunneling_Int(Ecr,Evl, par.T, par.lyr[j].ILL, a);
-		Jpr:=-q*MillarAbrahamsPre*p[ii+1]*n[ii]*Calc_Tunneling_Int(Ecl,Evr, par.T, par.lyr[j+1].ILL, a);
-
-		FOR i:=0 TO ii DO
-		BEGIN
-			Jn[i]:=Jn[i] + Jnl;
-			Jp[i]:=Jp[i] + Jpl;
-		END;
-		FOR i:=ii+1 TO stv.i1[stv.NLayers] DO
-		BEGIN
-			Jn[i]:=Jn[i] + Jnr;
-			Jp[i]:=Jp[i] + Jpr;
-		END;
-	END;
 END;
 
 PROCEDURE Calc_Curr_Diff(sn : ShortInt; istart, ifinish : INTEGER; VAR J : vector; V, dens, mu, Rint : vector; CONSTREF stv : TStaticVars; CONSTREF par : TInputParameters);
@@ -2980,7 +2972,7 @@ BEGIN
 	ASSIGN(uitv, par.varFile);
 	REWRITE(uitv); {rewrite old file (if any) or create new one}
     {write header, in the simulation we'll simply output the variables, but not change this header:}
-    WRITE(uitv, ' x V Evac Ec Ev phin phip n p ND NA anion cation ntb nti mun mup G_ehp Gfree Rdir Rtunn BulkSRHn BulkSRHp IntSRHn IntSRHp Jn Jp Jint');
+    WRITE(uitv, ' x V Evac Ec Ev phin phip n p ND NA anion cation ntb nti mun mup G_ehp Gfree Rdir RnTunn RpTunn BulkSRHn BulkSRHp IntSRHn IntSRHp Jn Jp Jint');
 
     IF transient 
 		THEN WRITELN(uitv,' Jnion Jpion JD lid time') {add time! the ion & displacement currents are zero if not transient!}
@@ -3032,7 +3024,7 @@ BEGIN
 				{generation:}
 				Gm[i]:nd,' ',gen[i]:nd,' ',
 				{recombination:}
-				Rn.direct[i]:nd,' ',Rn.tunn[i],' ',Rn.bulk[i]:nd,' ',Rp.bulk[i]:nd,' ',Rn.int[i]:nd,' ',Rp.int[i]:nd,' ',
+				Rn.direct[i]:nd,' ',Rn.tunn[i],' ',Rp.tunn[i],' ',Rn.bulk[i]:nd,' ',Rp.bulk[i]:nd,' ',Rn.int[i]:nd,' ',Rp.int[i]:nd,' ',
 				{current densities:}
 				Jn[i]:nd,' ',Jp[i]:nd,' ',Jtot:nd);	        
         IF transient 

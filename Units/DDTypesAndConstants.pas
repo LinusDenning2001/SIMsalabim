@@ -64,7 +64,6 @@ CONST
     LowerLimBraun = 0.01; {IN Calc_Dissociation, lower limit of integration in Braun model, should be non-zero}
     UpperLimBraun = 20; {IN Calc_Dissociation, upper limit of integration in Braun model }
     minDeltaLambda = 0.5E-9; {IN: Read_AM_From_File, Read_nk_Material_From_File, minimum spacing between wavelengths in supplied spectrum/n,k files}
-    MillarAbrahamsPre = 1E-2;
 
 
 TYPE 
@@ -135,9 +134,10 @@ TYPE
 				mu_n, mu_p, gamma_n, gamma_p,
 				nu_int_n, nu_int_p, N_t_int, E_t_int, C_n_int, C_p_int,
 				N_anion, N_cation, mu_anion, mu_cation,
-				G_ehp, P0, a, ILL, 
+				G_ehp, P0, a,
 				k_f, preLangevin, k_direct,
-				N_t_bulk, C_n_bulk, C_p_bulk, E_t_bulk : myReal; 
+				N_t_bulk, C_n_bulk, C_p_bulk, E_t_bulk,
+				tunn_fact : myReal; 
 			    {integers:}		
 				mobnDep, mobpDep, intTrapType,
 				Use_gen_profile, thermLengDist, bulkTrapType : INTEGER; 
