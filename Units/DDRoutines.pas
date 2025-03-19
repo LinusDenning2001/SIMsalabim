@@ -1968,9 +1968,9 @@ BEGIN
     g[par.NP+1]:=0
 END;
 
-FUNCTION Calc_Tunneling_Int(CONSTREF Estart, Eend, Vti , tunn_fact: myReal) : myReal;
+FUNCTION Calc_Tunneling_Pre(CONSTREF Estart, Eend, Vti , tunn_fact: myReal) : myReal;
 BEGIN
-	Calc_Tunneling_Int:=tunn_fact*EXP(-Vti*(ABS(Eend-Estart) + Eend-Estart)/2);
+	Calc_Tunneling_Pre:=tunn_fact*EXP(-Vti*(ABS(Eend-Estart) + Eend-Estart)/2);
 END;
 
 PROCEDURE Calc_Recombination_n(VAR Rn : TRec; dti : myReal; CONSTREF n, p, dp, Lan, V : vector; f_tb, f_ti : TTrapArray; CONSTREF stv : TStaticVars; CONSTREF par : TInputParameters);
@@ -2116,15 +2116,15 @@ BEGIN
 			Evr:=par.lyr[j+1].E_v + V[ii+1];
 
 			{Recombination terms}
-			dum1:=Calc_Tunneling_Int(Ecl,Evr, stv.Vti, par.lyr[j].tunn_fact);
-			dum2:=Calc_Tunneling_Int(Ecr,Evl, stv.Vti, par.lyr[j].tunn_fact);
+			dum1:=Calc_Tunneling_Pre(Ecl,Evr, stv.Vti, par.lyr[j].tunn_fact);
+			dum2:=Calc_Tunneling_Pre(Ecr,Evl, stv.Vti, par.lyr[j].tunn_fact);
 
 			Rn.tunn_cont_m[ii]:=iiw*p[ii+1]*dum1;
 			Rn.tunn_cont_m[ii+1]:=iiw*p[ii]*dum2;
 
 			{Generation terms}
-			dum1:=(par.lyr[j+1].N_c-p[ii+1])*Calc_Tunneling_Int(Evr,Ecl, stv.Vti, par.lyr[j].tunn_fact);
-			dum2:=(par.lyr[j].N_c-p[ii])*Calc_Tunneling_Int(Evl,Ecr, stv.Vti, par.lyr[j].tunn_fact);
+			dum1:=(par.lyr[j+1].N_c-p[ii+1])*Calc_Tunneling_Pre(Evr,Ecl, stv.Vti, par.lyr[j].tunn_fact);
+			dum2:=(par.lyr[j].N_c-p[ii])*Calc_Tunneling_Pre(Evl,Ecr, stv.Vti, par.lyr[j].tunn_fact);
 
 			Rn.tunn_cont_rhs[ii]:=iiw*par.lyr[j].N_c*dum1;
 			Rn.tunn_cont_rhs[ii+1]:=iiw*par.lyr[j+1].N_c*dum2;
@@ -2134,7 +2134,7 @@ BEGIN
 
 			{Total recombination}
 			Rn.tunn[ii]:=n[ii]*Rn.tunn_cont_m[ii] - Rn.tunn_cont_rhs[ii];
-			Rn.tunn[ii+1]:=n[ii+1]*Rn.tunn_cont_m[ii+1] - Rn.tunn_cont_rhs[ii+1]
+			Rn.tunn[ii+1]:=n[ii+1]*Rn.tunn_cont_m[ii+1] - Rn.tunn_cont_rhs[ii+1];
 		END;
 	END;
 END;
@@ -2282,15 +2282,15 @@ BEGIN
 			Evr:=par.lyr[j+1].E_v + V[ii+1];
 
 			{Recombination terms}
-			dum1:=Calc_Tunneling_Int(Ecr,Evl, stv.Vti, par.lyr[j].tunn_fact);
-			dum2:=Calc_Tunneling_Int(Ecl,Evr, stv.Vti, par.lyr[j].tunn_fact);
+			dum1:=Calc_Tunneling_Pre(Ecr,Evl, stv.Vti, par.lyr[j].tunn_fact);
+			dum2:=Calc_Tunneling_Pre(Ecl,Evr, stv.Vti, par.lyr[j].tunn_fact);
 
 			Rp.tunn_cont_m[ii]:=iiw*n[ii+1]*dum1;
 			Rp.tunn_cont_m[ii+1]:=iiw*n[ii]*dum2;
 
 			{Generation terms}
-			dum1:=(par.lyr[j+1].N_c-n[ii+1])*Calc_Tunneling_Int(Evl,Ecr, stv.Vti, par.lyr[j].tunn_fact);
-			dum2:=(par.lyr[j].N_c-n[ii])*Calc_Tunneling_Int(Evr,Ecl, stv.Vti, par.lyr[j].tunn_fact);
+			dum1:=(par.lyr[j+1].N_c-n[ii+1])*Calc_Tunneling_Pre(Evl,Ecr, stv.Vti, par.lyr[j].tunn_fact);
+			dum2:=(par.lyr[j].N_c-n[ii])*Calc_Tunneling_Pre(Evr,Ecl, stv.Vti, par.lyr[j].tunn_fact);
 
 			Rp.tunn_cont_rhs[ii]:=iiw*par.lyr[j].N_c*dum1;
 			Rp.tunn_cont_rhs[ii+1]:=iiw*par.lyr[j+1].N_c*dum2;
@@ -2300,7 +2300,7 @@ BEGIN
 
 			{potal recombination}
 			Rp.tunn[ii]:=p[ii]*Rp.tunn_cont_m[ii] - Rp.tunn_cont_rhs[ii];
-			Rp.tunn[ii+1]:=p[ii+1]*Rp.tunn_cont_m[ii+1] - Rp.tunn_cont_rhs[ii+1]
+			Rp.tunn[ii+1]:=p[ii+1]*Rp.tunn_cont_m[ii+1] - Rp.tunn_cont_rhs[ii+1];
 		END;
 	END;
 END;
