@@ -1980,7 +1980,7 @@ VAR i, ii, j, e : INTEGER;
 	iiw,
 	sum_aj, sum_bj, sum_cj, sum_dj,
 	ciL, ciR, ai,
-	f_ti_level_inv_denom, numer, denom, a, b, c1, g, h, g0, g1, h0, h1, Evl, Ecl, Evr, Ecr,
+	f_ti_level_inv_denom, numer, denom, a, b, c1, g, h, g0, g1, h0, h1, Evl, Ecl, Evr, Ecr, n0l, n0r, p0l, p0r,
 	dum1, dum2 : myReal; {used to store partial results}
 BEGIN 
 	FILLCHAR(Rn, SIZEOF(Rn), 0); {first: reset all fields to 0}
@@ -2123,14 +2123,47 @@ BEGIN
 			Rn.tunn_cont_m[ii+1]:=iiw*p[ii]*dum2;
 
 			{Generation terms}
-			dum1:=(par.lyr[j+1].N_c-p[ii+1])*Calc_Tunneling_Pre(Evr,Ecl, stv.Vti, par.lyr[j].tunn_fact);
-			dum2:=(par.lyr[j].N_c-p[ii])*Calc_Tunneling_Pre(Evl,Ecr, stv.Vti, par.lyr[j].tunn_fact);
+			{left side}
+			IF (par.lyr[j].N_A = 0) AND (par.lyr[j].N_D = 0) THEN
+			BEGIN
+				n0l:=stv.ni[ii];
+				p0l:=stv.ni[ii];
+			END
+			ELSE
+			BEGIN
+				IF par.lyr[j].N_A > par.lyr[j].N_D THEN
+				BEGIN
+					p0l:=par.lyr[j].N_A;
+					n0l:=SQR(stv.ni[ii])/p0l;
+				END
+				ELSE
+				BEGIN
+					n0l:=par.lyr[j].N_D;
+					p0l:=SQR(stv.ni[ii])/n0l;
+				END;
+			END;
+			{right side}
+			IF (par.lyr[j+1].N_A = 0) AND (par.lyr[j+1].N_D = 0) THEN
+			BEGIN
+				n0l:=stv.ni[ii+1];
+				p0l:=stv.ni[ii+1];
+			END
+			ELSE
+			BEGIN
+				IF par.lyr[j+1].N_A > par.lyr[j+1].N_D THEN
+				BEGIN
+					p0r:=par.lyr[j+1].N_A;
+					n0r:=SQR(stv.ni[ii+1])/p0r;
+				END
+				ELSE
+				BEGIN
+					n0r:=par.lyr[j+1].N_D;
+					p0r:=SQR(stv.ni[ii+1])/n0r;
+				END;
+			END;
 
-			Rn.tunn_cont_rhs[ii]:=iiw*par.lyr[j].N_c*dum1;
-			Rn.tunn_cont_rhs[ii+1]:=iiw*par.lyr[j+1].N_c*dum2;
-
-			Rn.tunn_cont_m[ii]:=Rn.tunn_cont_m[ii] + iiw*dum1;
-			Rn.tunn_cont_m[ii+1]:=Rn.tunn_cont_m[ii+1] + iiw*dum2;
+			Rn.tunn_cont_rhs[ii]:=iiw*n0l*p0r*dum1;
+			Rn.tunn_cont_rhs[ii+1]:=iiw*n0r*p0l*dum2;
 
 			{Total recombination}
 			Rn.tunn[ii]:=n[ii]*Rn.tunn_cont_m[ii] - Rn.tunn_cont_rhs[ii];
@@ -2146,7 +2179,7 @@ VAR i, ii, j, e : INTEGER;
 	iiw,
 	sum_aj, sum_bj, sum_cj, sum_dj,
 	diL, diR, bi, 
-	f_ti_level_inv_denom, numer, denom, a, b, c1, g, h, g0, g1, h0, h1, Evl, Ecl, Evr, Ecr,
+	f_ti_level_inv_denom, numer, denom, a, b, c1, g, h, g0, g1, h0, h1, Evl, Ecl, Evr, Ecr, n0l, n0r, p0l, p0r,
 	dum1, dum2 : myReal; {used to store partial results}
 BEGIN 
 	FILLCHAR(Rp, SIZEOF(Rp), 0); {first: reset all fields to 0}
@@ -2289,14 +2322,47 @@ BEGIN
 			Rp.tunn_cont_m[ii+1]:=iiw*n[ii]*dum2;
 
 			{Generation terms}
-			dum1:=(par.lyr[j+1].N_c-n[ii+1])*Calc_Tunneling_Pre(Evl,Ecr, stv.Vti, par.lyr[j].tunn_fact);
-			dum2:=(par.lyr[j].N_c-n[ii])*Calc_Tunneling_Pre(Evr,Ecl, stv.Vti, par.lyr[j].tunn_fact);
+			{left side}
+			IF (par.lyr[j].N_A = 0) AND (par.lyr[j].N_D = 0) THEN
+			BEGIN
+				n0l:=stv.ni[ii];
+				p0l:=stv.ni[ii];
+			END
+			ELSE
+			BEGIN
+				IF par.lyr[j].N_A > par.lyr[j].N_D THEN
+				BEGIN
+					p0l:=par.lyr[j].N_A;
+					n0l:=SQR(stv.ni[ii])/p0l;
+				END
+				ELSE
+				BEGIN
+					n0l:=par.lyr[j].N_D;
+					p0l:=SQR(stv.ni[ii])/n0l;
+				END;
+			END;
+			{right side}
+			IF (par.lyr[j+1].N_A = 0) AND (par.lyr[j+1].N_D = 0) THEN
+			BEGIN
+				n0l:=stv.ni[ii+1];
+				p0l:=stv.ni[ii+1];
+			END
+			ELSE
+			BEGIN
+				IF par.lyr[j+1].N_A > par.lyr[j+1].N_D THEN
+				BEGIN
+					p0r:=par.lyr[j+1].N_A;
+					n0r:=SQR(stv.ni[ii+1])/p0r;
+				END
+				ELSE
+				BEGIN
+					n0r:=par.lyr[j+1].N_D;
+					p0r:=SQR(stv.ni[ii+1])/n0r;
+				END;
+			END;
 
-			Rp.tunn_cont_rhs[ii]:=iiw*par.lyr[j].N_c*dum1;
-			Rp.tunn_cont_rhs[ii+1]:=iiw*par.lyr[j+1].N_c*dum2;
-
-			Rp.tunn_cont_m[ii]:=Rp.tunn_cont_m[ii] + iiw*dum1;
-			Rp.tunn_cont_m[ii+1]:=Rp.tunn_cont_m[ii+1] + iiw*dum2;
+			Rp.tunn_cont_rhs[ii]:=iiw*p0l*n0r*dum1;
+			Rp.tunn_cont_rhs[ii+1]:=iiw*p0r*n0l*dum2;
 
 			{potal recombination}
 			Rp.tunn[ii]:=p[ii]*Rp.tunn_cont_m[ii] - Rp.tunn_cont_rhs[ii];
