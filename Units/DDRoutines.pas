@@ -403,7 +403,7 @@ BEGIN
 		stv.Traps_int_poisson:=stv.Traps_int_poisson OR (N_t_int<>0) AND (intTrapType<>0) AND (layerNumber<stv.NLayers); {note: last layer does not specify interface traps}
 		Get_Float(inv, msg, 'C_n_int', C_n_int, CLpre); {m^3/s, capture coefficient for electrons (put to 0 to exclude capture from and emission to the conduction band)}
 		Get_Float(inv, msg, 'C_p_int', C_p_int, CLpre); {m^3/s, capture coefficient for holes (put to 0 to exclude capture from and emission to the valence band)}
-		Get_Float(inv, msg, 'tunn_fact', tunn_fact, CLpre); {m^-2 s^-1, tunneling factor for tunneling recombination}
+		Get_Float(inv, msg, 'tunn_fact', tunn_fact, CLpre); {m^4 s^-1, tunneling factor for tunneling recombination (includes ditances as well as the Millar-Abrahams prefactor)}
 
 {**Ions*******************************************************************}
 		Get_Float(inv, msg, 'N_anion', N_anion, CLpre); {m^-3, concentration of negative ions}
@@ -2110,10 +2110,10 @@ BEGIN
 
 		IF dti=0 THEN {steady-state}
 		BEGIN
-			Ecl:=par.lyr[j].E_c + V[ii];
-			Evl:=par.lyr[j].E_v + V[ii];
-			Ecr:=par.lyr[j+1].E_c + V[ii+1];
-			Evr:=par.lyr[j+1].E_v + V[ii+1];
+			Ecl:=par.lyr[j].E_c - V[ii];
+			Evl:=par.lyr[j].E_v - V[ii];
+			Ecr:=par.lyr[j+1].E_c - V[ii+1];
+			Evr:=par.lyr[j+1].E_v - V[ii+1];
 
 			{Recombination terms}
 			dum1:=Calc_Tunneling_Pre(Ecl,Evr, stv.Vti, par.lyr[j].tunn_fact);
@@ -2276,10 +2276,10 @@ BEGIN
 
 		IF dti=0 THEN {steady-state}
 		BEGIN
-			Ecl:=par.lyr[j].E_c + V[ii];
-			Evl:=par.lyr[j].E_v + V[ii];
-			Ecr:=par.lyr[j+1].E_c + V[ii+1];
-			Evr:=par.lyr[j+1].E_v + V[ii+1];
+			Ecl:=par.lyr[j].E_c - V[ii];
+			Evl:=par.lyr[j].E_v - V[ii];
+			Ecr:=par.lyr[j+1].E_c - V[ii+1];
+			Evr:=par.lyr[j+1].E_v - V[ii+1];
 
 			{Recombination terms}
 			dum1:=Calc_Tunneling_Pre(Ecr,Evl, stv.Vti, par.lyr[j].tunn_fact);
@@ -2343,26 +2343,26 @@ BEGIN
 		WITH stv DO {ni and h are static variables!}
 		BEGIN
 			fac := 0.5*SQR(Ltot)*h[i]*h[i-1]*(h[i]+h[i-1]); {repeats often in the equations}
-			
+
 			rhs[i]:=- fac * (g[i] +nPrevTime[i]*dti)
-        			- fac*Rn.dir_cont_rhs[i] {direct / Langevin recombination}
+				- fac*Rn.dir_cont_rhs[i] {direct / Langevin recombination}
 		        	+ fac*Rn.bulk_cont_rhs[i] {the part of Rn_bulk that does not depend on n_new}
-			        + fac*Rn.int_cont_rhs[i] {the part of Rn_int that does not depend on n_new}
-			        - fac*Rn.tunn_cont_rhs[i]; {the part of Rn_tunn that does not depend on n_new}
-			
+				+ fac*Rn.int_cont_rhs[i] {the part of Rn_int that does not depend on n_new}
+				- fac*Rn.tunn_cont_rhs[i]; {the part of Rn_tunn that does not depend on n_new}
+
 			lo[i]:=  h[i]*mu[i-1]*stv.Vt*B((V[i-1]-V[i])*stv.Vti) +
-         		   - fac*Rn.int_cont_lo[i]; {the part of Rn_int that depends on n[i-1]}
-			
+				- fac*Rn.int_cont_lo[i]; {the part of Rn_int that depends on n[i-1]}
+
 			m[i]:=- (h[i-1]*mu[i]*stv.Vt*B((V[i]-V[i+1])*stv.Vti) +
-				    h[i]*mu[i-1]*stv.Vt*B((V[i]-V[i-1])*stv.Vti))
+				h[i]*mu[i-1]*stv.Vt*B((V[i]-V[i-1])*stv.Vti))
 				- fac*dti
 				- fac*Rn.dir_cont_m[i] {direct / Langevin recombination}
 				- fac*Rn.bulk_cont_m[i] {the part of Rn_bulk that depends on n[i]}
 				- fac*Rn.int_cont_m[i] {the part of Rn_int that depends on n[i]}
 				- fac*Rn.tunn_cont_m[i]; {the part of Rn_tunn that depends on n[i]}
-			
+
 			u[i]:=  h[i-1]*mu[i]*stv.Vt*B((V[i+1]-V[i])*stv.Vti)
-			      - fac*Rn.int_cont_up[i]; {the part of Rn_int that depends on n[i+1]}
+				- fac*Rn.int_cont_up[i]; {the part of Rn_int that depends on n[i+1]}
 		END;
 
   	{Set the boundary conditions on the right side of the device}
@@ -2620,8 +2620,6 @@ BEGIN
 			1 : Calc_Curr_Diff(1, 0, par.NP, Jp, Vgp, p, mup, Rp.int, stv, par);{only needs part of Rp with interface recombination}
 			2 : Calc_Curr_Int(1, 0, par.NP, dti, Jp, Vgp, p, curr.p, mup, gen, Rp, stv, par); {needs full Rp and curr.p}
 		END;	
-		
-		{ Add_Tunneling_Curr(Jn, Jp, n, p, V, stv, par); }
 
 		{first, set all ionic currents to zero:}
 		FILLCHAR(Jnion, SIZEOF(Jnion), 0); 
