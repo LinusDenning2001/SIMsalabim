@@ -2145,8 +2145,8 @@ BEGIN
 			{right side}
 			IF (par.lyr[j+1].N_A = 0) AND (par.lyr[j+1].N_D = 0) THEN
 			BEGIN
-				n0l:=stv.ni[ii+1];
-				p0l:=stv.ni[ii+1];
+				n0r:=stv.ni[ii+1];
+				p0r:=stv.ni[ii+1];
 			END
 			ELSE
 			BEGIN
@@ -2344,8 +2344,8 @@ BEGIN
 			{right side}
 			IF (par.lyr[j+1].N_A = 0) AND (par.lyr[j+1].N_D = 0) THEN
 			BEGIN
-				n0l:=stv.ni[ii+1];
-				p0l:=stv.ni[ii+1];
+				n0r:=stv.ni[ii+1];
+				p0r:=stv.ni[ii+1];
 			END
 			ELSE
 			BEGIN
