@@ -1980,7 +1980,7 @@ VAR i, ii, j, e : INTEGER;
 	iiw,
 	sum_aj, sum_bj, sum_cj, sum_dj,
 	ciL, ciR, ai,
-	f_ti_level_inv_denom, numer, denom, a, b, c1, g, h, g0, g1, h0, h1, Evl, Ecl, Evr, Ecr,
+	f_ti_level_inv_denom, numer, denom, a, b, c0, c1, g, h, g0, g1, h0, h1, Evl, Ecl, Evr, Ecr, n0l, n0r, p0l, p0r, V0, Vm,
 	dum1, dum2 : myReal; {used to store partial results}
 BEGIN 
 	FILLCHAR(Rn, SIZEOF(Rn), 0); {first: reset all fields to 0}
@@ -2110,31 +2110,59 @@ BEGIN
 
 		IF dti=0 THEN {steady-state}
 		BEGIN
-			Ecl:=par.lyr[j].E_c - V[ii];
-			Evl:=par.lyr[j].E_v - V[ii];
-			Ecr:=par.lyr[j+1].E_c - V[ii+1];
-			Evr:=par.lyr[j+1].E_v - V[ii+1];
+			{doping cencentrations of both sides}
+			c0:=par.lyr[j].N_A - par.lyr[j].N_D;
+			c1:=par.lyr[j+1].N_A - par.lyr[j+1].N_D;
 
-			{Recombination terms}
-			dum1:=Calc_Tunneling_Pre(Ecl,Evr, stv.Vti, par.lyr[j].tunn_fact);
-			dum2:=Calc_Tunneling_Pre(Ecr,Evl, stv.Vti, par.lyr[j].tunn_fact);
+			{check there are dopents and both layers are opositly doped}
+			IF (c0 <> 0) AND (c1 <> 0) AND ((c0 > 0) XOR (c1 > 0)) THEN
+			BEGIN
+				Ecl:=par.lyr[j].E_c - V[ii];
+				Evl:=par.lyr[j].E_v - V[ii];
+				Ecr:=par.lyr[j+1].E_c - V[ii+1];
+				Evr:=par.lyr[j+1].E_v - V[ii+1];
 
-			Rn.tunn_cont_m[ii]:=iiw*p[ii+1]*dum1;
-			Rn.tunn_cont_m[ii+1]:=iiw*p[ii]*dum2;
+				{Recombination terms}
+				dum1:=Calc_Tunneling_Pre(Ecl,Evr, stv.Vti, par.lyr[j].tunn_fact);
+				dum2:=Calc_Tunneling_Pre(Ecr,Evl, stv.Vti, par.lyr[j].tunn_fact);
 
-			{Generation terms}
-			dum1:=(par.lyr[j+1].N_c-p[ii+1])*Calc_Tunneling_Pre(Evr,Ecl, stv.Vti, par.lyr[j].tunn_fact);
-			dum2:=(par.lyr[j].N_c-p[ii])*Calc_Tunneling_Pre(Evl,Ecr, stv.Vti, par.lyr[j].tunn_fact);
+				Rn.tunn_cont_m[ii]:=iiw*p[ii+1]*dum1;
+				Rn.tunn_cont_m[ii+1]:=iiw*p[ii]*dum2;
 
-			Rn.tunn_cont_rhs[ii]:=iiw*par.lyr[j].N_c*dum1;
-			Rn.tunn_cont_rhs[ii+1]:=iiw*par.lyr[j+1].N_c*dum2;
+				{Generation terms}
+				IF c0 > 0 THEN
+				BEGIN
+					p0l:=c0;
+					n0l:=SQR(stv.ni[ii])/p0l;
 
-			Rn.tunn_cont_m[ii]:=Rn.tunn_cont_m[ii] + iiw*dum1;
-			Rn.tunn_cont_m[ii+1]:=Rn.tunn_cont_m[ii+1] + iiw*dum2;
+					n0r:=-c1;
+					p0r:=SQR(stv.ni[ii+1])/n0r;
+				END
+				ELSE
+				BEGIN
+					n0l:=-c0;
+					p0l:=SQR(stv.ni[ii])/n0l;
 
-			{Total recombination}
-			Rn.tunn[ii]:=n[ii]*Rn.tunn_cont_m[ii] - Rn.tunn_cont_rhs[ii];
-			Rn.tunn[ii+1]:=n[ii+1]*Rn.tunn_cont_m[ii+1] - Rn.tunn_cont_rhs[ii+1];
+					p0r:=c1;
+					n0r:=SQR(stv.ni[ii+1])/p0r;
+				END;
+
+				V0:=stv.Vt/q*LN(n0l/n0r);
+
+				{total width of depletion region}
+				h:=SQRT(2*V0/2*ABS(par.lyr[j].eps_r/c0 - par.lyr[j+1].eps_r/c1));
+
+				a:=(par.lyr[j].eps_r*h*c0)/(par.lyr[j].eps_r*c0 - par.lyr[j+1].eps_r*c1);
+
+				Vm:=(q*c0*SQR(a))/(2*par.lyr[j].eps_r);
+
+				Rn.tunn_cont_rhs[ii]:=iiw*n0l*p0r*EXP(-q*Vm*stv.Vti)*EXP(-q*(V0 - Vm)*stv.Vti)*dum1;
+				Rn.tunn_cont_rhs[ii+1]:=iiw*n0r*p0l*EXP(q*Vm*stv.Vti)*EXP(q*(V0 - Vm)*stv.Vti)*dum2;
+
+				{Total recombination}
+				Rn.tunn[ii]:=n[ii]*Rn.tunn_cont_m[ii] - Rn.tunn_cont_rhs[ii];
+				Rn.tunn[ii+1]:=n[ii+1]*Rn.tunn_cont_m[ii+1] - Rn.tunn_cont_rhs[ii+1];
+			END;
 		END;
 	END;
 END;
@@ -2146,7 +2174,7 @@ VAR i, ii, j, e : INTEGER;
 	iiw,
 	sum_aj, sum_bj, sum_cj, sum_dj,
 	diL, diR, bi, 
-	f_ti_level_inv_denom, numer, denom, a, b, c1, g, h, g0, g1, h0, h1, Evl, Ecl, Evr, Ecr,
+	f_ti_level_inv_denom, numer, denom, a, b, c0, c1, g, h, g0, g1, h0, h1, Evl, Ecl, Evr, Ecr, n0l, n0r, p0l, p0r, V0, Vm,
 	dum1, dum2 : myReal; {used to store partial results}
 BEGIN 
 	FILLCHAR(Rp, SIZEOF(Rp), 0); {first: reset all fields to 0}
@@ -2276,31 +2304,57 @@ BEGIN
 
 		IF dti=0 THEN {steady-state}
 		BEGIN
-			Ecl:=par.lyr[j].E_c - V[ii];
-			Evl:=par.lyr[j].E_v - V[ii];
-			Ecr:=par.lyr[j+1].E_c - V[ii+1];
-			Evr:=par.lyr[j+1].E_v - V[ii+1];
+			{doping cencentrations of both sides}
+			c0:=par.lyr[j].N_A - par.lyr[j].N_D;
+			c1:=par.lyr[j+1].N_A - par.lyr[j+1].N_D;
 
-			{Recombination terms}
-			dum1:=Calc_Tunneling_Pre(Ecr,Evl, stv.Vti, par.lyr[j].tunn_fact);
-			dum2:=Calc_Tunneling_Pre(Ecl,Evr, stv.Vti, par.lyr[j].tunn_fact);
+			{check there are dopents and both layers are opositly doped}
+			IF (c0 <> 0) AND (c1 <> 0) AND ((c0 > 0) XOR (c1 > 0)) THEN
+				Ecl:=par.lyr[j].E_c - V[ii];
+				Evl:=par.lyr[j].E_v - V[ii];
+				Ecr:=par.lyr[j+1].E_c - V[ii+1];
+				Evr:=par.lyr[j+1].E_v - V[ii+1];
 
-			Rp.tunn_cont_m[ii]:=iiw*n[ii+1]*dum1;
-			Rp.tunn_cont_m[ii+1]:=iiw*n[ii]*dum2;
+				{Recombination terms}
+				dum1:=Calc_Tunneling_Pre(Ecr,Evl, stv.Vti, par.lyr[j].tunn_fact);
+				dum2:=Calc_Tunneling_Pre(Ecl,Evr, stv.Vti, par.lyr[j].tunn_fact);
 
-			{Generation terms}
-			dum1:=(par.lyr[j+1].N_c-n[ii+1])*Calc_Tunneling_Pre(Evl,Ecr, stv.Vti, par.lyr[j].tunn_fact);
-			dum2:=(par.lyr[j].N_c-n[ii])*Calc_Tunneling_Pre(Evr,Ecl, stv.Vti, par.lyr[j].tunn_fact);
+				Rp.tunn_cont_m[ii]:=iiw*n[ii+1]*dum1;
+				Rp.tunn_cont_m[ii+1]:=iiw*n[ii]*dum2;
 
-			Rp.tunn_cont_rhs[ii]:=iiw*par.lyr[j].N_c*dum1;
-			Rp.tunn_cont_rhs[ii+1]:=iiw*par.lyr[j+1].N_c*dum2;
+				{Generation terms}
+				IF c0 > 0 THEN
+				BEGIN
+					p0l:=c0;
+					n0l:=SQR(stv.ni[ii])/p0l;
 
-			Rp.tunn_cont_m[ii]:=Rp.tunn_cont_m[ii] + iiw*dum1;
-			Rp.tunn_cont_m[ii+1]:=Rp.tunn_cont_m[ii+1] + iiw*dum2;
+					n0r:=-c1;
+					p0r:=SQR(stv.ni[ii+1])/n0r;
+				END
+				ELSE
+				BEGIN
+					n0l:=-c0;
+					p0l:=SQR(stv.ni[ii])/n0l;
 
-			{potal recombination}
-			Rp.tunn[ii]:=p[ii]*Rp.tunn_cont_m[ii] - Rp.tunn_cont_rhs[ii];
-			Rp.tunn[ii+1]:=p[ii+1]*Rp.tunn_cont_m[ii+1] - Rp.tunn_cont_rhs[ii+1];
+					p0r:=c1;
+					n0r:=SQR(stv.ni[ii+1])/p0r;
+				END;
+
+				V0:=stv.Vt/q*LN(n0l/n0r);
+
+				{total width of depletion region}
+				h:=SQRT(2*V0/2*ABS(par.lyr[j].eps_r/c0 - par.lyr[j+1].eps_r/c1));
+
+				a:=(par.lyr[j].eps_r*h*c0)/(par.lyr[j].eps_r*c0 - par.lyr[j+1].eps_r*c1);
+
+				Vm:=(q*c0*SQR(a))/(2*par.lyr[j].eps_r);
+
+				Rp.tunn_cont_rhs[ii]:=iiw*p0l*n0r*EXP(q*Vm*stv.Vti)*EXP(q*(V0 - Vm)*stv.Vti)*dum1;
+				Rp.tunn_cont_rhs[ii+1]:=iiw*p0r*n0l*EXP(-q*Vm*stv.Vti)*EXP(-q*(V0 - Vm)*stv.Vti)*dum2;
+
+				{potal recombination}
+				Rp.tunn[ii]:=p[ii]*Rp.tunn_cont_m[ii] - Rp.tunn_cont_rhs[ii];
+				Rp.tunn[ii+1]:=p[ii+1]*Rp.tunn_cont_m[ii+1] - Rp.tunn_cont_rhs[ii+1];
 		END;
 	END;
 END;
