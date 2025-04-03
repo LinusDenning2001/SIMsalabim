@@ -2150,7 +2150,7 @@ BEGIN
 				V0:=stv.Vt/q*LN(n0l/n0r);
 
 				{total width of depletion region}
-				h:=SQRT(2*V0/2*ABS(par.lyr[j].eps_r/c0 - par.lyr[j+1].eps_r/c1));
+				h:=SQRT(-2*V0/2*(par.lyr[j].eps_r/c0 - par.lyr[j+1].eps_r/c1));
 
 				a:=(par.lyr[j].eps_r*h*c0)/(par.lyr[j].eps_r*c0 - par.lyr[j+1].eps_r*c1);
 
@@ -2310,6 +2310,7 @@ BEGIN
 
 			{check there are dopents and both layers are opositly doped}
 			IF (c0 <> 0) AND (c1 <> 0) AND ((c0 > 0) XOR (c1 > 0)) THEN
+			BEGIN
 				Ecl:=par.lyr[j].E_c - V[ii];
 				Evl:=par.lyr[j].E_v - V[ii];
 				Ecr:=par.lyr[j+1].E_c - V[ii+1];
@@ -2343,7 +2344,7 @@ BEGIN
 				V0:=stv.Vt/q*LN(n0l/n0r);
 
 				{total width of depletion region}
-				h:=SQRT(2*V0/2*ABS(par.lyr[j].eps_r/c0 - par.lyr[j+1].eps_r/c1));
+				h:=SQRT(-2*V0/2*(par.lyr[j].eps_r/c0 - par.lyr[j+1].eps_r/c1));
 
 				a:=(par.lyr[j].eps_r*h*c0)/(par.lyr[j].eps_r*c0 - par.lyr[j+1].eps_r*c1);
 
@@ -2355,6 +2356,7 @@ BEGIN
 				{potal recombination}
 				Rp.tunn[ii]:=p[ii]*Rp.tunn_cont_m[ii] - Rp.tunn_cont_rhs[ii];
 				Rp.tunn[ii+1]:=p[ii+1]*Rp.tunn_cont_m[ii+1] - Rp.tunn_cont_rhs[ii+1];
+			END;
 		END;
 	END;
 END;
