@@ -2571,6 +2571,7 @@ BEGIN
 	JD[par.NP+1]:=JD[par.NP]; {doesn't have a physical meaning though}
 END;
 
+{TODO: Fix current for differential case}
 PROCEDURE Calc_Curr_Diff(sn : ShortInt; istart, ifinish : INTEGER; VAR J : vector; V, dens, mu, Rint : vector; CONSTREF stv : TStaticVars; CONSTREF par : TInputParameters);
 {This procedure calculates the current density in differential form, see Selberherr eq. 6.1-39 or 6.1-41}
 {sn denotes the sign of the carrier, so -1 for electrons, +1 for holes}
